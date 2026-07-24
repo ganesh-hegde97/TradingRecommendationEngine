@@ -1,0 +1,11 @@
+symbol,company_name,sector,last_price,return_1m_pct,return_3m_pct,price_vs_50dma_pct,price_vs_200dma_pct,revenue_growth_yoy_pct,profit_growth_yoy_pct,roe_pct,debt_to_equity,volume_ratio,market_cap_cr,source_url,as_of_date
+DEMOALPHA,Alpha Industries Ltd,Capital Goods,1245.5,8.2,21.4,6.8,18.6,16.2,22.1,19.4,0.31,1.48,84500,https://example.com/demoalpha,2026-07-24
+DEMOBETA,Beta Consumer Ltd,FMCG,820.3,5.4,14.8,4.6,12.1,12.3,15.7,24.8,0.12,1.22,62100,https://example.com/demobeta,2026-07-24
+DEMOGAMMA,Gamma Technology Ltd,IT Services,1560.0,11.6,28.9,10.2,23.5,18.6,24.4,27.1,0.08,1.71,112000,https://example.com/demogamma,2026-07-24
+DEMODELTA,Delta Finance Ltd,Financial Services,302.4,3.1,9.8,2.2,8.4,10.4,11.6,15.3,3.42,1.10,48600,https://example.com/demodelta,2026-07-24
+DEMOEPSILON,Epsilon Energy Ltd,Energy,445.7,-2.2,7.4,-1.8,6.2,8.9,18.1,13.2,0.58,0.94,73500,https://example.com/demoepsilon,2026-07-24
+DEMOZETA,Zeta Metals Ltd,Metals,678.2,14.4,32.5,12.6,26.4,5.1,29.7,17.6,0.73,2.06,38900,https://example.com/demozeta,2026-07-24
+DEMOETA,Eta Healthcare Ltd,Healthcare,1044.9,7.8,18.2,5.7,15.0,14.2,17.9,21.4,0.21,1.34,55800,https://example.com/demoeta,2026-07-24
+DEMOTHETA,Theta Realty Ltd,Real Estate,237.6,1.4,4.2,1.1,3.6,7.6,8.2,9.8,1.96,0.87,19200,https://example.com/demotheta,2026-07-24
+DEMOIOTA,Iota Auto Ltd,Automobile,920.8,9.7,19.6,7.9,16.8,11.9,19.3,18.7,0.44,1.57,96400,https://example.com/demoiota,2026-07-24
+DEMOKAPPA,Kappa Telecom Ltd,Telecom,128.6,6.3,13.0,3.8,10.4,9.1,12.4,11.5,1.72,1.16,41200,https://example.com/demokappa,2026-07-24
