@@ -9,16 +9,23 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import messagebox, ttk
 
-from python_app.excel_export import export_workbook
-from python_app.market_data import (
-    download_nse_candidates,
-    load_demo_data,
-    load_nifty50_symbols,
-)
-from python_app.scoring import score_candidates
+import args
+
+from python_app.config.settings import settings
+from python_app.config.logging_config import logger
+from python_app.services.recommendation_service import RecommendationService
+from python_app.exports.excel_export import export_workbook
 
 
 class ScreenerApp(tk.Tk):
+    service = RecommendationService()
+
+    if args.demo:
+        rows = service.screen_demo()
+
+    elif args.nifty50:
+        rows, source, failures = service.screen_nifty50()
+
     def __init__(self) -> None:
         super().__init__()
         self.title("NSE Positive Stock Screener")
@@ -178,11 +185,11 @@ class ScreenerApp(tk.Tk):
                 "",
                 "end",
                 values=(
-                    row["symbol"],
-                    row["company_name"],
-                    f"{row['last_price']:.2f}",
-                    f"{row['return_1m_pct']:.1f}",
-                    f"{row['return_3m_pct']:.1f}",
+                    stock.symbol,
+                    stock.company_name,
+                    f"{stock.last_price:.2f}",
+                    f"{stock.return_1m_pct:.1f}",
+                    f"{stock.return_3m_pct:.1f}",
                     f"{row['score']:.1f}",
                     row["decision"],
                     row["risk_flags"],
@@ -199,7 +206,7 @@ class ScreenerApp(tk.Tk):
             return
         output = (
             Path(__file__).resolve().parents[1]
-            / "outputs"
+            / settings.OUTPUT_DIRECTORY
             / f"nse_recommendations_{datetime.now():%Y%m%d_%H%M%S}.xlsx"
         )
         try:
@@ -211,6 +218,8 @@ class ScreenerApp(tk.Tk):
 
 
 def main() -> None:
+    service = RecommendationService()
+
     parser = argparse.ArgumentParser(
         description="NSE positive-stock screener desktop UI"
     )
@@ -226,10 +235,10 @@ def main() -> None:
     )
     args = parser.parse_args()
     if args.demo:
-        rows = score_candidates(load_demo_data())
+        rows = service.screen_demo()
         output = (
             Path(__file__).resolve().parents[1]
-            / "outputs"
+            / settings.OUTPUT_DIRECTORY
             / "python_nse_recommendations.xlsx"
         )
         export_workbook(rows, output, "Python demo data")
@@ -238,16 +247,16 @@ def main() -> None:
         )
         return
     if args.nifty50:
-        symbols, source = load_nifty50_symbols()
+        symbols, source = service.screen_nifty50()
         failures: list[str] = []
         rows = score_candidates(download_nse_candidates(symbols, failures))
         output = (
             Path(__file__).resolve().parents[1]
-            / "outputs"
+            / settings.OUTPUT_DIRECTORY
             / "nifty50_recommendations.xlsx"
         )
         export_workbook(rows, output, source)
-        print(
+        logger.info(
             f"Screened {len(rows)} Nifty 50 symbols; {sum(row['eligible'] for row in rows)} recommendations; {len(failures)} skipped: {output}"
         )
         return

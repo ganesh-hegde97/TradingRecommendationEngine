@@ -1,71 +1,12 @@
 """NSE data adapter. Live downloads use yfinance's public Yahoo Finance endpoint."""
 
 from __future__ import annotations
-
 from datetime import date
-from http.client import REQUEST_TIMEOUT
-from io import StringIO
-from pathlib import Path
 from typing import Any
-from urllib.request import Request, urlopen
-
-import pandas as pd
-
-from python_app.config import settings
-
-NIFTY50_CONSTITUENT_URL = (
-    "https://www.niftyindices.com/IndexConstituent/ind_nifty50list.csv"
-)
-NIFTY50_OFFICIAL_PAGE = (
-    "https://www.niftyindices.com/indices/equity/broad-based-indices/nifty--50"
-)
 
 
 def _pct(current: float, previous: float) -> float:
     return round((current / previous - 1) * 100, 2)
-
-
-def load_demo_data() -> list[dict[str, Any]]:
-    path = Path(__file__).resolve().parents[1] / "data" / "sample_nse_candidates.csv"
-    return pd.read_csv(path).to_dict(orient="records")
-
-
-def load_nifty50_symbols(
-    constituent_url: str = NIFTY50_CONSTITUENT_URL,
-) -> tuple[list[str], str]:
-    """Return the current official Nifty 50 symbols, with a checked local fallback.
-
-    The constituent CSV is fetched at runtime so semi-annual index changes do not require
-    a code release. A fallback is deliberately labelled as a snapshot and should only be
-    used when the official download is unavailable.
-    """
-    try:
-        request = Request(constituent_url, headers={"User-Agent": "Mozilla/5.0"})
-        with urlopen(request, settings.REQUEST_TIMEOUT) as response:
-            frame = pd.read_csv(StringIO(response.read().decode("utf-8-sig")))
-        symbol_column = next(
-            (column for column in frame.columns if column.strip().lower() == "symbol"),
-            None,
-        )
-        if symbol_column is None:
-            raise ValueError("Official constituent file has no Symbol column.")
-        symbols = _clean_symbols(frame[symbol_column].tolist())
-        if len(symbols) != 50:
-            raise ValueError(
-                f"Official constituent file returned {len(symbols)} unique symbols, not 50."
-            )
-        return symbols, f"Official Nifty Indices constituent CSV: {constituent_url}"
-    except Exception:
-        fallback = Path(__file__).resolve().parents[1] / "data" / "nifty50_fallback.csv"
-        symbols = _clean_symbols(pd.read_csv(fallback)["symbol"].tolist())
-        if len(symbols) != 50:
-            raise RuntimeError(
-                "Bundled Nifty 50 fallback is not a valid 50-symbol list."
-            )
-        return (
-            symbols,
-            f"Bundled fallback snapshot — refresh from {NIFTY50_OFFICIAL_PAGE}",
-        )
 
 
 def _clean_symbols(symbols: list[Any]) -> list[str]:
