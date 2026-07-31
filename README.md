@@ -8,6 +8,20 @@ The application uses one typed flow throughout: `market data → Stock → scori
 Data adapters normalize external records into `Stock` objects; the scoring service returns
 `Recommendation` objects; only the Excel exporter serializes them for a workbook.
 
+## Version 2.1 technical indicators
+
+`python_app.indicators.TechnicalIndicators` is a stateless, reusable module for OHLCV
+data. It provides RSI, MACD, EMA (20/50/200), SMA, ATR, ADX, Bollinger Bands,
+SuperTrend, VWAP, OBV, Stochastic RSI, and Ichimoku Cloud. All outputs preserve the
+input pandas index and use `NaN` until enough history exists.
+
+```python
+from python_app.indicators import TechnicalIndicators
+
+# history has High, Low, Close, and Volume columns.
+indicators = TechnicalIndicators.calculate_all(history)
+```
+
 - `python_app/app.py` — Tkinter desktop UI.
 - `python_app/market_data.py` — optional NSE data download through `yfinance` (`.NS` tickers).
 - `python_app/scoring.py` — transparent, testable scoring and eligibility rules.
