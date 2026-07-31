@@ -22,6 +22,20 @@ from python_app.indicators import TechnicalIndicators
 indicators = TechnicalIndicators.calculate_all(history)
 ```
 
+## Version 2.2 fundamental scoring
+
+`python_app.fundamentals.FundamentalScoringEngine` assesses ROE, ROCE, debt/equity,
+PEG, EPS and revenue growth, operating margin, promoter and institutional holdings, and
+free cash flow. It returns a 100-point factor breakdown, data-completeness signal, risk
+flags, and an India-oriented market-cap classification. Scores are research aids—not
+investment advice.
+
+```python
+from python_app.fundamentals import FundamentalMetrics, FundamentalScoringEngine
+
+assessment = FundamentalScoringEngine().assess(FundamentalMetrics.from_mapping(source_data))
+```
+
 - `python_app/app.py` — Tkinter desktop UI.
 - `python_app/market_data.py` — optional NSE data download through `yfinance` (`.NS` tickers).
 - `python_app/scoring.py` — transparent, testable scoring and eligibility rules.
