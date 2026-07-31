@@ -44,6 +44,19 @@ technical, fundamental, momentum, liquidity, and volatility subscores; a confide
 percentage; a `STRONG BUY` through `STRONG SELL` label; and detailed evidence/risk
 explanations. It is an explainable research aid, not personalised investment advice.
 
+## Version 2.4 risk management
+
+`python_app.risk.RiskManagementEngine` produces a cash-only long-position plan for a
+given entry price and `RiskSettings`. The plan includes entry, protective and trailing
+stops, three risk-multiple targets, price risk/reward percentages, risk/reward ratio,
+and position size capped by both the capital-risk budget and available capital.
+
+```python
+from python_app.risk import RiskManagementEngine, RiskSettings
+
+plan = RiskManagementEngine().plan(100, RiskSettings(capital=100_000, atr=4))
+```
+
 - `python_app/app.py` — Tkinter desktop UI.
 - `python_app/market_data.py` — optional NSE data download through `yfinance` (`.NS` tickers).
 - `python_app/scoring.py` — transparent, testable scoring and eligibility rules.
