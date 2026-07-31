@@ -32,7 +32,7 @@ def load_nifty50_symbols(
             )
         return symbols, f"Official Nifty Indices constituent CSV: {constituent_url}"
     except Exception:
-        fallback = Path(__file__).resolve().parents[1] / "data" / "nifty50_fallback.csv"
+        fallback = Path(__file__).resolve().parents[2] / "data" / "nifty50_fallback.csv"
         symbols = _clean_symbols(pd.read_csv(fallback)["symbol"].tolist())
         if len(symbols) != 50:
             raise RuntimeError(

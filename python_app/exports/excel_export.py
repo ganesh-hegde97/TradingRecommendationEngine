@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 from openpyxl import Workbook
 from openpyxl.formatting.rule import CellIsRule
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
-from python_app.services.scoring_service import FACTORS
+from python_app.core.constants import FACTORS
+from python_app.models import Recommendation
 
 NAVY = "17365D"
 BLUE = "1F4E78"
@@ -93,14 +93,30 @@ def _set_widths(ws, widths: list[int]) -> None:
         ws.column_dimensions[get_column_letter(index)].width = width
 
 
+def _export_record(recommendation: Recommendation) -> dict[str, object]:
+    """Adapt typed results only at the workbook serialization boundary."""
+    row = recommendation.stock.to_mapping()
+    row.update(
+        {
+            "score": recommendation.score,
+            "decision": recommendation.decision,
+            "eligible": recommendation.eligible,
+            "risk_flags": recommendation.risk_flags,
+            "data_complete": "Missing required data" not in recommendation.reasons,
+        }
+    )
+    return row
+
+
 def export_workbook(
-    rows: list[dict[str, Any]], output_file: Path, source_label: str
+    recommendations: list[Recommendation], output_file: Path, source_label: str
 ) -> None:
     """Create a fully Python-generated, formula-driven audit workbook.
 
     Excel recalculates the formula sheets when opened. The Parameters sheet contains the
     editable weights and gates; All Candidates references those cells directly.
     """
+    rows = [_export_record(recommendation) for recommendation in recommendations]
     output_file.parent.mkdir(parents=True, exist_ok=True)
     wb = Workbook()
     recommendations = wb.active

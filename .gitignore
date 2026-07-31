@@ -1,4 +1,5 @@
 outputs/
+python_app/logs/
 .tmp/
 __pycache__/
 *.py[cod]

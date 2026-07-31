@@ -3,6 +3,7 @@
 from __future__ import annotations
 from datetime import date
 from typing import Any
+from python_app.models import Stock
 
 
 def _pct(current: float, previous: float) -> float:
@@ -21,7 +22,7 @@ def _clean_symbols(symbols: list[Any]) -> list[str]:
 
 def download_nse_candidates(
     symbols: list[str], failures: list[str] | None = None
-) -> list[dict[str, Any]]:
+) -> list[Stock]:
     """Fetch one year of daily pricing plus available company fundamentals for NSE tickers.
 
     Yahoo's fields can be absent for some tickers. Those rows stay visible but are flagged
@@ -34,7 +35,7 @@ def download_nse_candidates(
             "Live data needs yfinance. Run: pip install -r requirements.txt"
         ) from exc
 
-    results: list[dict[str, Any]] = []
+    results: list[Stock] = []
     for supplied in symbols:
         symbol = supplied.strip().upper().removesuffix(".NS")
         if not symbol:
@@ -51,7 +52,7 @@ def download_nse_candidates(
     return results
 
 
-def _download_one_nse_candidate(yf: Any, symbol: str) -> dict[str, Any]:
+def _download_one_nse_candidate(yf: Any, symbol: str) -> Stock:
     ticker = yf.Ticker(f"{symbol}.NS")
     history = ticker.history(period="1y", auto_adjust=True)
     if history.empty or len(history) < 201:
@@ -60,26 +61,28 @@ def _download_one_nse_candidate(yf: Any, symbol: str) -> dict[str, Any]:
     volume = history["Volume"].dropna()
     info = ticker.info or {}
     last = float(close.iloc[-1])
-    return {
-        "symbol": symbol,
-        "company_name": info.get("shortName") or symbol,
-        "sector": info.get("sector") or "Not supplied",
-        "last_price": round(last, 2),
-        "return_1m_pct": _pct(last, float(close.iloc[-22])),
-        "return_3m_pct": _pct(last, float(close.iloc[-64])),
-        "price_vs_50dma_pct": _pct(last, float(close.tail(50).mean())),
-        "price_vs_200dma_pct": _pct(last, float(close.tail(200).mean())),
-        "revenue_growth_yoy_pct": _ratio_pct(info.get("revenueGrowth")),
-        "profit_growth_yoy_pct": _ratio_pct(info.get("earningsGrowth")),
-        "roe_pct": _ratio_pct(info.get("returnOnEquity")),
-        "debt_to_equity": _debt_ratio(info.get("debtToEquity")),
-        "volume_ratio": round(
-            float(volume.iloc[-1]) / float(volume.tail(20).mean()), 2
-        ),
-        "market_cap_cr": _market_cap_cr(info.get("marketCap")),
-        "source_url": f"https://finance.yahoo.com/quote/{symbol}.NS",
-        "as_of_date": date.today().isoformat(),
-    }
+    return Stock.from_mapping(
+        {
+            "symbol": symbol,
+            "company_name": info.get("shortName") or symbol,
+            "sector": info.get("sector") or "Not supplied",
+            "last_price": round(last, 2),
+            "return_1m_pct": _pct(last, float(close.iloc[-22])),
+            "return_3m_pct": _pct(last, float(close.iloc[-64])),
+            "price_vs_50dma_pct": _pct(last, float(close.tail(50).mean())),
+            "price_vs_200dma_pct": _pct(last, float(close.tail(200).mean())),
+            "revenue_growth_yoy_pct": _ratio_pct(info.get("revenueGrowth")),
+            "profit_growth_yoy_pct": _ratio_pct(info.get("earningsGrowth")),
+            "roe_pct": _ratio_pct(info.get("returnOnEquity")),
+            "debt_to_equity": _debt_ratio(info.get("debtToEquity")),
+            "volume_ratio": round(
+                float(volume.iloc[-1]) / float(volume.tail(20).mean()), 2
+            ),
+            "market_cap_cr": _market_cap_cr(info.get("marketCap")),
+            "source_url": f"https://finance.yahoo.com/quote/{symbol}.NS",
+            "as_of_date": date.today().isoformat(),
+        }
+    )
 
 
 def _ratio_pct(value: Any) -> float | None:

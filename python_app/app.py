@@ -1,4 +1,4 @@
-"""Runnable Tkinter UI for NSE positive-stock screening."""
+"""Tkinter controller and command-line entry point for the recommendation workflow."""
 
 from __future__ import annotations
 
@@ -9,29 +9,21 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import messagebox, ttk
 
-import args
-
-from python_app.config.settings import settings
 from python_app.config.logging_config import logger
-from python_app.services.recommendation_service import RecommendationService
+from python_app.config.settings import settings
 from python_app.exports.excel_export import export_workbook
+from python_app.models import Recommendation
+from python_app.services.recommendation_service import RecommendationService
 
 
 class ScreenerApp(tk.Tk):
-    service = RecommendationService()
-
-    if args.demo:
-        rows = service.screen_demo()
-
-    elif args.nifty50:
-        rows, source, failures = service.screen_nifty50()
-
     def __init__(self) -> None:
         super().__init__()
+        self.service = RecommendationService()
         self.title("NSE Positive Stock Screener")
         self.geometry("1250x690")
         self.minsize(1000, 580)
-        self.rows: list[dict] = []
+        self.recommendations: list[Recommendation] = []
         self.status = tk.StringVar(
             value="Screen the current Nifty 50, enter a custom subset, or load demo data."
         )
@@ -58,12 +50,6 @@ class ScreenerApp(tk.Tk):
             row=0, column=5, padx=4
         )
         controls.columnconfigure(1, weight=1)
-        ttk.Label(
-            controls,
-            text="Nifty 50 uses the official constituent CSV with a validated fallback; price/fundamental data uses Yahoo Finance/yfinance.",
-            foreground="#7F6000",
-        ).grid(row=1, column=0, columnspan=6, pady=(8, 0), sticky="w")
-
         columns = (
             "symbol",
             "company",
@@ -75,31 +61,22 @@ class ScreenerApp(tk.Tk):
             "flags",
         )
         self.tree = ttk.Treeview(self, columns=columns, show="headings", height=22)
-        headings = {
-            "symbol": "Symbol",
-            "company": "Company",
-            "price": "Last price (₹)",
-            "one_month": "1M %",
-            "three_month": "3M %",
-            "score": "Score",
-            "decision": "Decision",
-            "flags": "Risk flags",
-        }
-        widths = {
-            "symbol": 105,
-            "company": 245,
-            "price": 105,
-            "one_month": 80,
-            "three_month": 80,
-            "score": 80,
-            "decision": 135,
-            "flags": 340,
-        }
-        for key in columns:
-            self.tree.heading(key, text=headings[key])
+        headings = (
+            "Symbol",
+            "Company",
+            "Last price (Rs)",
+            "1M %",
+            "3M %",
+            "Score",
+            "Decision",
+            "Risk flags",
+        )
+        widths = (105, 245, 105, 80, 80, 80, 135, 340)
+        for key, heading, width in zip(columns, headings, widths):
+            self.tree.heading(key, text=heading)
             self.tree.column(
                 key,
-                width=widths[key],
+                width=width,
                 anchor="w" if key in {"company", "flags"} else "center",
             )
         self.tree.tag_configure("recommend", foreground="#006100")
@@ -108,8 +85,8 @@ class ScreenerApp(tk.Tk):
         ttk.Label(self, textvariable=self.status, padding=(12, 4)).pack(fill="x")
 
     def load_demo(self) -> None:
-        self.show_rows(
-            score_candidates(load_demo_data()),
+        self.show_recommendations(
+            self.service.screen_demo(),
             "Demo data loaded. Export it or fetch live data.",
         )
 
@@ -117,89 +94,73 @@ class ScreenerApp(tk.Tk):
         symbols = [
             item.strip() for item in self.symbols.get().split(",") if item.strip()
         ]
-        self.status.set("Downloading price and fundamental data…")
+        self.status.set("Downloading price and fundamental data...")
         threading.Thread(
-            target=self._fetch_worker, args=(symbols,), daemon=True
+            target=self._custom_worker, args=(symbols,), daemon=True
         ).start()
 
     def fetch_nifty50(self) -> None:
-        self.status.set(
-            "Loading Nifty 50 constituents, then downloading data for up to 50 stocks…"
-        )
+        self.status.set("Loading Nifty 50 constituents and market data...")
         threading.Thread(target=self._nifty50_worker, daemon=True).start()
+
+    def _custom_worker(self, symbols: list[str]) -> None:
+        try:
+            recommendations = self.service.screen_custom(symbols)
+            self.after(
+                0,
+                lambda: self.show_recommendations(
+                    recommendations,
+                    f"Live data refreshed for {len(recommendations)} symbols.",
+                ),
+            )
+        except Exception as exc:
+            self.after(
+                0, lambda: messagebox.showerror("Live data unavailable", str(exc))
+            )
 
     def _nifty50_worker(self) -> None:
         try:
-            symbols, source = load_nifty50_symbols()
-            failures: list[str] = []
-            rows = score_candidates(download_nse_candidates(symbols, failures))
-            suffix = (
-                f" {len(failures)} symbols skipped due to unavailable data."
-                if failures
-                else ""
-            )
+            recommendations, source, failures = self.service.screen_nifty50()
+            suffix = f" {len(failures)} symbols skipped." if failures else ""
             self.after(
                 0,
-                lambda: self.show_rows(
-                    rows,
-                    f"Screened {len(rows)} Nifty 50 symbols. Universe: {source}.{suffix}",
+                lambda: self.show_recommendations(
+                    recommendations,
+                    f"Screened {len(recommendations)} Nifty 50 symbols. Universe: {source}.{suffix}",
                 ),
             )
         except Exception as exc:
             self.after(
                 0, lambda: messagebox.showerror("Nifty 50 screen unavailable", str(exc))
             )
-            self.after(
-                0,
-                lambda: self.status.set(
-                    "Nifty 50 download failed. Check yfinance/network access and retry."
-                ),
-            )
 
-    def _fetch_worker(self, symbols: list[str]) -> None:
-        try:
-            rows = score_candidates(download_nse_candidates(symbols))
-            self.after(
-                0,
-                lambda: self.show_rows(
-                    rows, f"Live data refreshed for {len(rows)} symbols."
-                ),
-            )
-        except Exception as exc:  # surfaced in the UI without terminating it
-            self.after(
-                0, lambda: messagebox.showerror("Live data unavailable", str(exc))
-            )
-            self.after(
-                0,
-                lambda: self.status.set(
-                    "Live download failed. Use demo data or install yfinance."
-                ),
-            )
-
-    def show_rows(self, rows: list[dict], status: str) -> None:
-        self.rows = rows
+    def show_recommendations(
+        self, recommendations: list[Recommendation], status: str
+    ) -> None:
+        self.recommendations = recommendations
         for item in self.tree.get_children():
             self.tree.delete(item)
-        for row in rows:
+        for recommendation in recommendations:
+            stock = recommendation.stock
             self.tree.insert(
                 "",
                 "end",
                 values=(
                     stock.symbol,
                     stock.company_name,
-                    f"{stock.last_price:.2f}",
-                    f"{stock.return_1m_pct:.1f}",
-                    f"{stock.return_3m_pct:.1f}",
-                    f"{row['score']:.1f}",
-                    row["decision"],
-                    row["risk_flags"],
+                    f"{stock.last_price or 0:.2f}",
+                    f"{stock.return_1m_pct or 0:.1f}",
+                    f"{stock.return_3m_pct or 0:.1f}",
+                    f"{recommendation.score:.1f}",
+                    recommendation.decision,
+                    recommendation.risk_flags,
                 ),
-                tags=("recommend" if row["eligible"] else "watch",),
+                tags=("recommend" if recommendation.eligible else "watch",),
             )
         self.status.set(status)
 
     def export(self) -> None:
-        if not self.rows:
+        if not self.recommendations:
             messagebox.showinfo(
                 "Nothing to export", "Load demo data or fetch live data first."
             )
@@ -210,7 +171,7 @@ class ScreenerApp(tk.Tk):
             / f"nse_recommendations_{datetime.now():%Y%m%d_%H%M%S}.xlsx"
         )
         try:
-            export_workbook(self.rows, output, "Python desktop UI")
+            export_workbook(self.recommendations, output, "Python desktop UI")
             self.status.set(f"Exported: {output}")
             messagebox.showinfo("Excel exported", f"Saved to:\n{output}")
         except Exception as exc:
@@ -218,46 +179,48 @@ class ScreenerApp(tk.Tk):
 
 
 def main() -> None:
-    service = RecommendationService()
-
     parser = argparse.ArgumentParser(
         description="NSE positive-stock screener desktop UI"
     )
     parser.add_argument(
-        "--demo",
-        action="store_true",
-        help="Run a non-interactive demo export, useful for validation.",
+        "--demo", action="store_true", help="Run a non-interactive demo export."
     )
     parser.add_argument(
         "--nifty50",
         action="store_true",
-        help="Screen the current Nifty 50 and export the workbook without opening the UI.",
+        help="Screen the Nifty 50 and export without opening the UI.",
     )
     args = parser.parse_args()
+    service = RecommendationService()
     if args.demo:
-        rows = service.screen_demo()
+        recommendations = service.screen_demo()
         output = (
             Path(__file__).resolve().parents[1]
             / settings.OUTPUT_DIRECTORY
             / "python_nse_recommendations.xlsx"
         )
-        export_workbook(rows, output, "Python demo data")
+        export_workbook(recommendations, output, "Python demo data")
         logger.info(
-            f"Exported {len(rows)} candidates, {sum(row['eligible'] for row in rows)} recommendations: {output}"
+            "Exported %d candidates, %d recommendations: %s",
+            len(recommendations),
+            sum(item.eligible for item in recommendations),
+            output,
         )
         return
     if args.nifty50:
-        symbols, source = service.screen_nifty50()
-        failures: list[str] = []
-        rows = score_candidates(download_nse_candidates(symbols, failures))
+        recommendations, source, failures = service.screen_nifty50()
         output = (
             Path(__file__).resolve().parents[1]
             / settings.OUTPUT_DIRECTORY
             / "nifty50_recommendations.xlsx"
         )
-        export_workbook(rows, output, source)
+        export_workbook(recommendations, output, source)
         logger.info(
-            f"Screened {len(rows)} Nifty 50 symbols; {sum(row['eligible'] for row in rows)} recommendations; {len(failures)} skipped: {output}"
+            "Screened %d Nifty 50 stocks; %d recommendations; %d skipped: %s",
+            len(recommendations),
+            sum(item.eligible for item in recommendations),
+            len(failures),
+            output,
         )
         return
     ScreenerApp().mainloop()

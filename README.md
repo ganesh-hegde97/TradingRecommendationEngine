@@ -4,6 +4,10 @@ A Python-only desktop application that screens NSE candidates with positive tech
 
 ## Python components
 
+The application uses one typed flow throughout: `market data → Stock → scoring → Recommendation → UI/Excel`.
+Data adapters normalize external records into `Stock` objects; the scoring service returns
+`Recommendation` objects; only the Excel exporter serializes them for a workbook.
+
 - `python_app/app.py` — Tkinter desktop UI.
 - `python_app/market_data.py` — optional NSE data download through `yfinance` (`.NS` tickers).
 - `python_app/scoring.py` — transparent, testable scoring and eligibility rules.
