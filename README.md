@@ -36,6 +36,14 @@ from python_app.fundamentals import FundamentalMetrics, FundamentalScoringEngine
 assessment = FundamentalScoringEngine().assess(FundamentalMetrics.from_mapping(source_data))
 ```
 
+## Version 2.3 recommendations
+
+`python_app.recommendations.RecommendationEngine` combines a `TechnicalSnapshot` with
+a Version 2.2 fundamental assessment. It returns an overall 100-point score plus
+technical, fundamental, momentum, liquidity, and volatility subscores; a confidence
+percentage; a `STRONG BUY` through `STRONG SELL` label; and detailed evidence/risk
+explanations. It is an explainable research aid, not personalised investment advice.
+
 - `python_app/app.py` — Tkinter desktop UI.
 - `python_app/market_data.py` — optional NSE data download through `yfinance` (`.NS` tickers).
 - `python_app/scoring.py` — transparent, testable scoring and eligibility rules.
